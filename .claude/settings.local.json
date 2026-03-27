@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find C:UsersrlawlDesktopKOREASOFT -path *LiveCore* -type d -name LiveCore*)",
+      "Bash(ls:*)"
+    ]
+  }
+}
