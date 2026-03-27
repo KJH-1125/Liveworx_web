@@ -83,6 +83,7 @@ export async function authenticateUser(
   password: string,
   clientIp?: string
 ): Promise<AuthResult> {
+  try {
   // 1. 외부 API 호출 → 인증 + DB 접속정보 반환
   const api = await callExternalApi(custCd, userId, password)
   if (api.code !== 200 || !api.data) {
@@ -250,6 +251,10 @@ export async function authenticateUser(
   } catch { /* SP가 없을 수 있음 */ }
 
   return { success: true, user, dbConfig, boardDbConfig }
+  } catch (err) {
+    console.error('[authenticateUser] 예외:', err)
+    return { success: false, message: `서버 오류: ${(err as Error).message}` }
+  }
 }
 
 export async function logLogout(
