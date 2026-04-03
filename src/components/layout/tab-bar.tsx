@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState, useEffect, useCallback } from 'react'
-import { useTab } from '@/contexts/tab-context'
+import { useTab, DASHBOARD_TAB } from '@/contexts/tab-context'
 
 export default function TabBar() {
   const { tabs, activeTabId, activateTab, closeTab, closeOtherTabs, closeAllTabs } = useTab()
@@ -64,13 +64,14 @@ export default function TabBar() {
       <div ref={scrollRef} className="tab-scroll-area">
         {tabs.map((tab, i) => {
           const isActive = tab.id === activeTabId
+          const isDashboard = tab.id === DASHBOARD_TAB.id
           return (
             <div
               key={tab.id}
               data-tab-id={tab.id}
               className={`tab-item ${isActive ? 'tab-active' : 'tab-inactive'}`}
               onClick={() => activateTab(tab.id)}
-              onAuxClick={e => { if (e.button === 1) { e.preventDefault(); closeTab(tab.id) } }}
+              onAuxClick={e => { if (e.button === 1 && !isDashboard) { e.preventDefault(); closeTab(tab.id) } }}
               onContextMenu={e => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, tabId: tab.id }) }}
             >
               {/* Left slant connector — only for active tab */}
@@ -81,15 +82,17 @@ export default function TabBar() {
 
               <span className="tab-label">{tab.label}</span>
 
-              <button
-                className={`tab-close ${isActive ? 'tab-close-visible' : ''}`}
-                onClick={e => { e.stopPropagation(); closeTab(tab.id) }}
-                title="닫기"
-              >
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                  <path d="M2 2l6 6M8 2l-6 6"/>
-                </svg>
-              </button>
+              {!isDashboard && (
+                <button
+                  className={`tab-close ${isActive ? 'tab-close-visible' : ''}`}
+                  onClick={e => { e.stopPropagation(); closeTab(tab.id) }}
+                  title="닫기"
+                >
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                    <path d="M2 2l6 6M8 2l-6 6"/>
+                  </svg>
+                </button>
+              )}
 
               {/* Right slant connector — only for active tab */}
               {isActive && <div className="tab-connector-right" />}
@@ -111,9 +114,11 @@ export default function TabBar() {
           className="tab-context-menu"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
-          <button onClick={() => { closeTab(contextMenu.tabId); setContextMenu(null) }}>
-            탭 닫기
-          </button>
+          {contextMenu.tabId !== DASHBOARD_TAB.id && (
+            <button onClick={() => { closeTab(contextMenu.tabId); setContextMenu(null) }}>
+              탭 닫기
+            </button>
+          )}
           <button onClick={() => { closeOtherTabs(contextMenu.tabId); setContextMenu(null) }}>
             다른 탭 모두 닫기
           </button>

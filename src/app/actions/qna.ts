@@ -14,6 +14,53 @@ import {
 } from '@/lib/services/qna-service'
 import type { QnaListItem, QnaDetail, QnaStatusCount, QnaManhourInfo } from '@/lib/services/qna-service'
 
+/**
+ * Infragistics UltraFormattedTextEditor의 <img data="..."> 태그를
+ * 브라우저가 렌더링할 수 있는 <img src="data:image/...;base64,..."> 로 변환.
+ * data 속성에는 .NET BinaryFormatter로 직렬화된 System.Drawing.Bitmap이 base64로 들어있다.
+ * 그 안에서 PNG/JPEG/BMP/GIF 시그니처를 찾아 실제 이미지 바이트만 추출한다.
+ */
+function convertInfragisticsImages(html: string): string {
+  return html.replace(/<img\s+data="([^"]+)"\s*\/?>/gi, (_match, b64data: string) => {
+    try {
+      const buf = Buffer.from(b64data, 'base64')
+
+      // 이미지 포맷별 시그니처
+      const signatures: { mime: string; sig: number[] }[] = [
+        { mime: 'image/png',  sig: [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A] }, // PNG
+        { mime: 'image/jpeg', sig: [0xFF, 0xD8, 0xFF] },                                 // JPEG
+        { mime: 'image/gif',  sig: [0x47, 0x49, 0x46, 0x38] },                           // GIF
+        { mime: 'image/bmp',  sig: [0x42, 0x4D] },                                       // BMP
+      ]
+
+      for (const { mime, sig } of signatures) {
+        const offset = findSignature(buf, sig)
+        if (offset >= 0) {
+          const imgBytes = buf.subarray(offset)
+          const imgB64 = imgBytes.toString('base64')
+          return `<img src="data:${mime};base64,${imgB64}" />`
+        }
+      }
+
+      // 시그니처를 못 찾으면 원본 유지 (텍스트로 표시되지 않도록 숨김)
+      return '<span style="color:var(--text-muted)">[이미지 표시 불가]</span>'
+    } catch {
+      return '<span style="color:var(--text-muted)">[이미지 표시 불가]</span>'
+    }
+  })
+}
+
+function findSignature(buf: Buffer, sig: number[]): number {
+  outer:
+  for (let i = 0; i <= buf.length - sig.length; i++) {
+    for (let j = 0; j < sig.length; j++) {
+      if (buf[i + j] !== sig[j]) continue outer
+    }
+    return i
+  }
+  return -1
+}
+
 function getBoardDb(session: {
   boardDbServer: string; boardDbPort: number;
   boardDbName: string; boardDbUser: string; boardDbPassword: string
@@ -89,6 +136,10 @@ export async function getQnaDetailAction(seq: number): Promise<DetailResult> {
   try {
     const detail = await getQnaDetailDB(boardDb, seq)
     if (!detail) return { error: '게시글을 찾을 수 없습니다.' }
+    // Infragistics <img data="..."> → <img src="data:image/png;base64,..."> 변환
+    if (detail.QNA_RTF) {
+      detail.QNA_RTF = convertInfragisticsImages(detail.QNA_RTF)
+    }
     return { detail }
   } catch (err) {
     console.error('[getQnaDetail]', err)

@@ -1,6 +1,20 @@
 'use client'
 
+import { useMemo } from 'react'
+import DOMPurify from 'isomorphic-dompurify'
 import type { QnaDetail } from '@/lib/services/qna-service'
+
+/** Infragistics UltraFormattedTextEditor HTML을 브라우저용으로 정리 */
+function sanitizeRtfHtml(raw: string): string {
+  // &edsp; 는 Infragistics 전용 엔티티 → em space로 변환
+  let html = raw.replace(/&edsp;/g, '\u2003')
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ['p', 'br', 'span', 'b', 'i', 'u', 'strong', 'em', 'img', 'div', 'a', 'table', 'tr', 'td', 'th', 'ul', 'ol', 'li', 'hr', 'font', 'sub', 'sup'],
+    ALLOWED_ATTR: ['style', 'src', 'alt', 'width', 'height', 'href', 'target', 'color', 'size', 'face', 'class'],
+    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|data):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
+    ALLOW_DATA_ATTR: false,
+  })
+}
 
 interface Props {
   detail: QnaDetail
@@ -12,6 +26,10 @@ interface Props {
 
 export default function QnaDetailPanel({ detail, currentUser, onReply, onEdit, onDelete }: Props) {
   const isOwner = detail.QNA_UPDUSERID === currentUser
+  const sanitizedHtml = useMemo(
+    () => detail.QNA_RTF ? sanitizeRtfHtml(detail.QNA_RTF) : null,
+    [detail.QNA_RTF]
+  )
 
   return (
     <div className="flex h-full flex-col">
@@ -50,9 +68,16 @@ export default function QnaDetailPanel({ detail, currentUser, onReply, onEdit, o
 
       {/* 본문 */}
       <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
-        <div className="whitespace-pre-wrap text-sm leading-relaxed text-[var(--text-primary)]">
-          {detail.QNA_CONTS}
-        </div>
+        {sanitizedHtml ? (
+          <div
+            className="qna-rtf-content text-sm leading-relaxed text-[var(--text-primary)]"
+            dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+          />
+        ) : (
+          <div className="whitespace-pre-wrap text-sm leading-relaxed text-[var(--text-primary)]">
+            {detail.QNA_CONTS}
+          </div>
+        )}
 
         {/* 관리자 답변 */}
         {detail.QNA_REPCONTENTS && (
@@ -106,6 +131,18 @@ export default function QnaDetailPanel({ detail, currentUser, onReply, onEdit, o
           </span>
         )}
       </div>
+
+      <style>{`
+        .qna-rtf-content img {
+          max-width: 100%;
+          height: auto;
+          border-radius: 4px;
+          margin: 4px 0;
+        }
+        .qna-rtf-content p {
+          margin: 0 0 0.5em;
+        }
+      `}</style>
     </div>
   )
 }

@@ -30,7 +30,7 @@ export function useTab() {
 
 const STORAGE_KEY = 'liveworx-tabs'
 const ACTIVE_KEY = 'liveworx-active-tab'
-const DASHBOARD_TAB: TabItem = { id: '/dashboard', path: '/dashboard', label: '대시보드' }
+export const DASHBOARD_TAB: TabItem = { id: '/dashboard', path: '/dashboard', label: '대시보드' }
 
 function loadTabs(): { tabs: TabItem[]; activeTabId: string | null } {
   if (typeof window === 'undefined') {
@@ -40,8 +40,10 @@ function loadTabs(): { tabs: TabItem[]; activeTabId: string | null } {
     const raw = sessionStorage.getItem(STORAGE_KEY)
     const active = sessionStorage.getItem(ACTIVE_KEY)
     if (raw) {
-      const tabs: TabItem[] = JSON.parse(raw)
-      if (tabs.length > 0) {
+      const parsed: TabItem[] = JSON.parse(raw)
+      if (parsed.length > 0) {
+        const hasDashboard = parsed.some(t => t.id === DASHBOARD_TAB.id)
+        const tabs = hasDashboard ? parsed : [DASHBOARD_TAB, ...parsed]
         return {
           tabs,
           activeTabId: active && tabs.some(t => t.id === active) ? active : tabs[0].id,
@@ -79,6 +81,7 @@ export function TabProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const closeTab = useCallback((id: string) => {
+    if (id === DASHBOARD_TAB.id) return // 대시보드는 닫을 수 없음
     setTabs(prev => {
       const idx = prev.findIndex(t => t.id === id)
       if (idx === -1) return prev
@@ -100,13 +103,13 @@ export function TabProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const closeOtherTabs = useCallback((id: string) => {
-    setTabs(prev => prev.filter(t => t.id === id))
+    setTabs(prev => prev.filter(t => t.id === id || t.id === DASHBOARD_TAB.id))
     setActiveTabId(id)
   }, [])
 
   const closeAllTabs = useCallback(() => {
-    setTabs([])
-    setActiveTabId(null)
+    setTabs([DASHBOARD_TAB])
+    setActiveTabId(DASHBOARD_TAB.id)
   }, [])
 
   return (
